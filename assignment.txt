@@ -1,0 +1,127 @@
+Overview
+Forecast the 10‑second‑ahead implied volatility (IV) of ETH using high‑frequency market data. Candidates will build and evaluate time‑series forecasting models that ingest 1‑second‑resolution order‑book snapshots and cross‑asset signals to produce IV predictions at t+10 s.
+
+Strong submissions demonstrate thoughtful feature engineering, rigorous time‑series validation, and reasoning relevant for the methodologies used
+
+Description
+Forecasting short‑term implied volatility is critical for creating trading strategies, from pricing to risk management, it's a simple yet crucial metric. In this assessment, you’ll work with:
+
+Order Book Snapshots: Up to 5 levels of bid and ask prices & volumes at 1‑second intervals.
+
+Peer Crypto Data: Orderbook data for related assets (e.g., BTC, SOL, etc.) to capture cross-asset relations.
+
+Your notebook should:
+
+Explore & Clean the data (missing timestamps, outliers). Engineer Features (order‐book imbalance, rolling realized vol, cross‐asset returns).
+Model the behavior of implied volatility for Ethereum.
+Validate using proper metrics (no look‑ahead in train or test is permitted, doing so will lead to direct disqualification).
+Document methodology, assumptions, and trade‐off considerations in a clear, reproducible python file 
+
+Evaluation
+Submissions are scored by the Pearson Correlation Coefficient between your predicted implied volatility (IV) and the true IV:
+r = (Σ(i=1 to N) (ŷi - ŷ̄)(yi - ȳ)) / √(Σ(i=1 to N) (ŷi - ŷ̄)² × Σ(i=1 to N) (yi - ȳ)²)
+yhat_i: The forecasted implied volatility at time i.
+y_i: The actual implied volatility at time i.
+yhat_bar: The mean of the forecasted implied volatilities.
+y_bar: The mean of the actual implied volatilities.
+A higher Pearson correlation coefficient (closer to 1) indicates better predictive accuracy, as it measures the linear relationship between predicted and actual values.
+
+Submission format
+Your submission must be a csv file with a header and exactly two columns:
+
+timestamp	labels
+1	        0.0321
+1	        0.0318
+
+
+Files
+Training data
+
+train/ETH.csv : Ethereum data for training
+train/BTC.csv , train/SOL.csv …, etc. : Supplementary data
+Test data
+
+test/ETH.csv : Test data for submission
+Sample submission
+
+submission.csv : Contains sample submission
+All files are CSVs with a header row and comma separators.
+
+Columns
+All order‑book CSVs share these columns:
+
+timestamp 1‑second resolution timestamp in YYYY-MM-DD HH:MM:SS format.
+
+mid_price : Mid‑market price = (best bid + best ask) / 2.
+
+bid_price1 … bid_price5 : Price at bid levels 1 through 5.
+
+bid_volume1 … bid_volume5 : Volume available at bid levels 1 through 5.
+
+ask_price1 … ask_price5 : Price at ask levels 1 through 5.
+
+ask_volume1 … ask_volume5 : Volume available at ask levels 1 through 5.
+
+label (float) The ground‑truth 10‑second‑ahead implied volatility.
+Only present in train/ETH.csv.
+
+
+What am I predicting?
+Target: the label column (10 s‑ahead implied volatility) for every row in the test ETH.csv file.
+The BTC, SOL, etc. files contain only order‑book data and should be used for cross‑asset feature engineering; they do not include label.
+
+
+starter example code:
+
+import pandas as pd 
+import numpy as np
+import matplotlib.pyplot as plt
+train = pd.read_csv("/kaggle/input/gq-implied-volatility-forecasting/train/ETH.csv")
+train.head(5)
+
+train['timestamp'] = pd.to_datetime(train['timestamp'])
+# Compute moving average of implied volatility (e.g., 600-second window)
+train['iv_ma_60s'] = train['label'].rolling(window=600, min_periods=1).mean()
+
+# Plot
+plt.figure(figsize=(12, 5))
+plt.plot(train['timestamp'], train['label'], label='Implied Volatility', alpha=0.6)
+plt.plot(train['timestamp'], train['iv_ma_60s'], label='60s Moving Average', linewidth=2)
+
+plt.xlabel("Time")
+plt.ylabel("Implied Volatility")
+plt.title("ETH Implied Volatility with Moving Average")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+
+X = train.drop(['label', 'timestamp'], axis=1).fillna(0)  # Features
+y = train['label'].fillna(0)  # Target variable
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize and train the model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Make predictions
+y_train_pred = model.predict(X_train)
+y_test_pred = model.predict(X_test)
+
+# Calculate R² scores
+train_r2 = r2_score(y_train, y_train_pred)
+test_r2 = r2_score(y_test, y_test_pred)
+
+print("Training R² score:", train_r2)
+print("Testing R² score:", test_r2)
+
+import pandas as pd
+submission = pd.read_csv("/kaggle/input/gq-implied-volatility-forecasting/submission.csv")
+
+submission.to_csv("submission.csv", index=False)
